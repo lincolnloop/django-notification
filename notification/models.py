@@ -393,3 +393,13 @@ def is_observing(observed, observer, signal='post_save'):
 
 def handle_observations(sender, instance, *args, **kw):
     send_observation_notices_for(instance)
+
+# Register provided backends.
+def register_backend():
+    """
+    Register the mail backend.
+    """
+    from notification import backends, signals
+    signals.notify_user.connect(backends.send_email)
+
+register_backend()
