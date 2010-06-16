@@ -24,7 +24,7 @@ from django.utils.functional import lazy
 from django.utils.translation import ugettext, ugettext_lazy as _
 from django.utils.translation import get_language, activate
 
-from notification import signals, utils
+from notification import backends, signals, utils
 
 QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
 NOTICE_MEDIA = lazy(utils.get_mediums, tuple)()
@@ -395,11 +395,4 @@ def handle_observations(sender, instance, *args, **kw):
     send_observation_notices_for(instance)
 
 # Register provided backends.
-def register_backend():
-    """
-    Register the mail backend.
-    """
-    from notification import backends, signals
-    signals.notify_user.connect(backends.send_email)
-
-register_backend()
+signals.notify_user.connect(backends.send_email)
