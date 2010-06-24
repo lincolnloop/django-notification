@@ -80,6 +80,15 @@ class NoticeSetting(models.Model):
         verbose_name_plural = _("notice settings")
         unique_together = ("user", "notice_type", "medium")
 
+def get_notification_setting(user, notice_type, medium):
+    try:
+        return NoticeSetting.objects.get(user=user, notice_type=notice_type, medium=medium)
+    except NoticeSetting.DoesNotExist:
+        default = utils.get_medium_default(medium)
+        setting = NoticeSetting(user=user, notice_type=notice_type, medium=medium, send=default)
+        setting.save()
+        return setting
+
 
 class NoticeManager(models.Manager):
 

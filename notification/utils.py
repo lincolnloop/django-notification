@@ -27,7 +27,7 @@ def get_mediums():
 def get_medium_default(medium):
     for receiver in get_receivers():
         if hasattr(receiver, 'medium'):
-            if receiver.medium[0] == medium:
+            if int(receiver.medium[0]) == int(medium):
                 return receiver.medium[2]
 
 
