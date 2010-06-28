@@ -5,10 +5,26 @@ from django.utils.importlib import import_module
 
 from notification import settings
 
+_backends = [] 
+
 
 def get_backends():
-    for module in settings.BACKENDS:
-        yield import_module(module)()
+    if _backends:
+        return _backends
+    for path in settings.BACKENDS:
+        module, attr = path.rsplit('.', 1)
+        try:
+            mod = import_module(module)
+        except ImportError, e:
+            raise ImproperlyConfigured('Error importing notification backend '
+                                       '%s: "%s"' % (module, e))
+        try:
+            cls = getattr(mod, attr)
+        except AttributeError:
+            raise ImproperlyConfigured('Module "%s" does not define a "%s" '
+                                       'notification backend' % (module, attr))
+        _backends.append(cls())
+    return _backends
 
 
 def get_mediums():
