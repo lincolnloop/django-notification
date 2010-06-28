@@ -12,25 +12,44 @@ if 'mailer' in settings.INSTALLED_APPS:
 else:
     from django.core.mail import send_mail
 
-MAIL_BACKEND_ID = '1'
+
+class BaseBackend(object):
+    mediums = ()
+    
+    def send(self):
+        raise NotImplementedError()
 
 
-def send_email(sender, user, notice_type, context, **kwargs):
-    """
-    Send the notification to a user as an e-mail.
-    """
-    if not user.email or not notice_type.should_send(user, MAIL_BACKEND_ID):
-        return
+class ModelBackend(BaseBackend):
 
-    # Strip newlines from subject
-    subject = ''.join(render_to_string('notification/email_subject.txt', {
-        'message': notice_type.render_template('short.txt', context),
-    }, context).splitlines())
+    def send(self, user, notice_type, on_site, sender, context, **kwargs):
+        """
+        Create a Notice model.
+        """
+        from notification.models import Notice
+        message = notice_type.render_template('notice.html', context)
+        Notice.objects.create(recipient=user, message=message,
+            notice_type=notice_type, on_site=on_site, sender=sender)
 
-    body = render_to_string('notification/email_body.txt', {
-        'message': notice_type.render_template('full.txt', context),
-    }, context)
 
-    send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email])
-
-send_email.medium = (MAIL_BACKEND_ID, ugettext_lazy('Email'), 2)
+class EmailBackend(BaseBackend):
+    mediums = (('1', ugettext_lazy('Email')),)
+    medium_defaults = {'1': 2}
+        
+    def send(self, user, notice_type, context, **kwargs):
+        """
+        Send the notification to a user as an e-mail.
+        """
+        if not user.email or not notice_type.should_send(user, '1'):
+            return
+    
+        # Strip newlines from subject
+        subject = ''.join(render_to_string('notification/email_subject.txt', {
+            'message': notice_type.render_template('short.txt', context),
+        }, context).splitlines())
+    
+        body = render_to_string('notification/email_body.txt', {
+            'message': notice_type.render_template('full.txt', context),
+        }, context)
+    
+        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email])

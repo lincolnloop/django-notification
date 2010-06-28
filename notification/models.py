@@ -7,7 +7,7 @@ except ImportError:
 
 from django.db import models
 from django.db.models.query import QuerySet
-from django.conf import settings
+from django.conf import settings as django_settings
 from django.core.urlresolvers import reverse
 
 from django.contrib.sites.models import Site
@@ -24,9 +24,8 @@ from django.utils.functional import lazy
 from django.utils.translation import ugettext, ugettext_lazy as _
 from django.utils.translation import get_language, activate
 
-from notification import backends, signals, utils
+from notification import settings, utils
 
-QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
 NOTICE_MEDIA = lazy(utils.get_mediums, tuple)()
 
 class NoticeType(models.Model):
@@ -233,7 +232,7 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None,
 
     notice_type = NoticeType.objects.get(label=label)
 
-    protocol = getattr(settings, "DEFAULT_HTTP_PROTOCOL", "http")
+    protocol = getattr(django_settings, "DEFAULT_HTTP_PROTOCOL", "http")
     current_site = Site.objects.get_current()
 
     notices_url = u"%s://%s%s" % (
@@ -268,13 +267,10 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None,
             "current_site": current_site,
         })
         context.update(extra_context)
-
-        message = notice_type.render_template('notice.html', context)
-        Notice.objects.create(recipient=user, message=message,
-            notice_type=notice_type, on_site=on_site, sender=sender)
-
-        signals.notify_user.send(sender=sender, user=user,
-            notice_type=notice_type, context=context, **kwargs)
+        
+        for backend in utils.get_backends():
+            backend.send(sender=sender, user=user, notice_type=notice_type,
+                context=context, on_site=on_site, **kwargs)
 
     # reset environment to original language
     activate(current_language)
@@ -294,7 +290,7 @@ def send(*args, **kwargs):
     elif now_flag:
         return send_now(*args, **kwargs)
     else:
-        if QUEUE_ALL:
+        if settings.QUEUE_ALL:
             return queue(*args, **kwargs)
         else:
             return send_now(*args, **kwargs)
@@ -402,6 +398,3 @@ def is_observing(observed, observer, signal='post_save'):
 
 def handle_observations(sender, instance, *args, **kw):
     send_observation_notices_for(instance)
-
-# Register provided backends.
-signals.notify_user.connect(backends.send_email)
