@@ -1,4 +1,4 @@
-VERSION = (0, 2, 0, "dev", 3)
+VERSION = (0, 2, 0, "dev", 4)
 
 def get_version():
     if VERSION[3] == "final":
