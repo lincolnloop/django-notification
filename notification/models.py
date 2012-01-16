@@ -32,7 +32,8 @@ class NoticeType(models.Model):
     display = models.CharField(_('display'), max_length=50)
     description = models.CharField(_('description'), max_length=100)
 
-    # by default only on for media with sensitivity less than or equal to this number
+    # By default only on for media with sensitivity less than or equal to this
+    # number.
     default = models.IntegerField(_('default'))
 
     def __unicode__(self):
@@ -81,17 +82,20 @@ class NoticeSetting(models.Model):
 
 def get_notification_setting(user, notice_type, medium):
     try:
-        return NoticeSetting.objects.get(user=user, notice_type=notice_type, medium=medium)
+        return NoticeSetting.objects.get(user=user, notice_type=notice_type,
+            medium=medium)
     except NoticeSetting.DoesNotExist:
         default = utils.get_medium_default(medium)
-        setting = NoticeSetting(user=user, notice_type=notice_type, medium=medium, send=default)
+        setting = NoticeSetting(user=user, notice_type=notice_type,
+            medium=medium, send=default)
         setting.save()
         return setting
 
 
 class NoticeManager(models.Manager):
 
-    def notices_for(self, user, archived=False, unseen=None, on_site=None, sent=False):
+    def notices_for(self, user, archived=False, unseen=None, on_site=None,
+            sent=False):
         """
         returns Notice objects for the given user.
 
@@ -139,8 +143,10 @@ class NoticeManager(models.Manager):
 
 class Notice(models.Model):
 
-    recipient = models.ForeignKey(User, related_name='received_notices', verbose_name=_('recipient'))
-    sender = models.ForeignKey(User, null=True, related_name='sent_notices', verbose_name=_('sender'))
+    recipient = models.ForeignKey(User, related_name='received_notices',
+        verbose_name=_('recipient'))
+    sender = models.ForeignKey(User, null=True, related_name='sent_notices',
+        verbose_name=_('sender'))
     message = models.TextField(_('message'))
     notice_type = models.ForeignKey(NoticeType, verbose_name=_('notice type'))
     added = models.DateTimeField(_('added'), default=datetime.datetime.now)
@@ -192,7 +198,8 @@ def create_notice_type(label, display, description, default=2, verbosity=1):
     """
     Creates a new NoticeType.
 
-    This is intended to be used by other apps as a post_syncdb manangement step.
+    This is intended to be used by other apps as a post_syncdb manangement
+    step.
     """
     try:
         notice_type = NoticeType.objects.get(label=label)
@@ -211,7 +218,8 @@ def create_notice_type(label, display, description, default=2, verbosity=1):
             if verbosity > 1:
                 print "Updated %s NoticeType" % label
     except NoticeType.DoesNotExist:
-        NoticeType(label=label, display=display, description=description, default=default).save()
+        NoticeType(label=label, display=display, description=description,
+            default=default).save()
         if verbosity > 1:
             print "Created %s NoticeType" % label
 
@@ -289,7 +297,8 @@ def send(*args, **kwargs):
     """
     queue_flag = kwargs.pop("queue", False)
     now_flag = kwargs.pop("now", False)
-    assert not (queue_flag and now_flag), "'queue' and 'now' cannot both be True."
+    assert not (queue_flag and now_flag), "'queue' and 'now' cannot both be "\
+        "True."
     if queue_flag:
         return queue(*args, **kwargs)
     elif now_flag:
@@ -317,7 +326,8 @@ def queue(users, label, extra_context=None, on_site=True, sender=None,
     notices = []
     for user in users:
         notices.append((user, label, extra_context, on_site, sender, kwargs))
-    NoticeQueueBatch(pickled_data=pickle.dumps(notices).encode("base64")).save()
+    NoticeQueueBatch(pickled_data=pickle.dumps(notices).encode("base64"))\
+        .save()
 
 
 class ObservedItemManager(models.Manager):
@@ -328,12 +338,14 @@ class ObservedItemManager(models.Manager):
         to be sent when a signal is emited.
         """
         content_type = ContentType.objects.get_for_model(observed)
-        observed_items = self.filter(content_type=content_type, object_id=observed.id, signal=signal)
+        observed_items = self.filter(content_type=content_type,
+            object_id=observed.id, signal=signal)
         return observed_items
 
     def get_for(self, observed, observer, signal):
         content_type = ContentType.objects.get_for_model(observed)
-        observed_item = self.get(content_type=content_type, object_id=observed.id, user=observer, signal=signal)
+        observed_item = self.get(content_type=content_type,
+            object_id=observed.id, user=observer, signal=signal)
         return observed_item
 
 
@@ -370,7 +382,8 @@ def observe(observed, observer, notice_type_label, signal='post_save'):
     """
     Create a new ObservedItem.
 
-    To be used by applications to register a user as an observer for some object.
+    To be used by applications to register a user as an observer for some
+    object.
     """
     notice_type = NoticeType.objects.get(label=notice_type_label)
     observed_item = ObservedItem(
@@ -389,7 +402,8 @@ def stop_observing(observed, observer, signal='post_save'):
     observed_item.delete()
 
 
-def send_observation_notices_for(observed, signal='post_save', extra_context=None):
+def send_observation_notices_for(observed, signal='post_save',
+        extra_context=None):
     """
     Send a notice for each registered user about an observed object.
     """

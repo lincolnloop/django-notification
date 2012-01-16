@@ -6,11 +6,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.syndication.views import feed
 
 from notification.models import *
-from notification.decorators import basic_auth_required, simple_basic_auth_callback
+from notification.decorators import basic_auth_required,\
+    simple_basic_auth_callback
 from notification.feeds import NoticeUserFeed
 
 
-@basic_auth_required(realm='Notices Feed', callback_func=simple_basic_auth_callback)
+@basic_auth_required(realm='Notices Feed',
+    callback_func=simple_basic_auth_callback)
 def feed_for_user(request):
     """
     An atom feed for all unarchived :model:`notification.Notice`s for a user.
@@ -31,19 +33,20 @@ def notices(request, template_name="notification/notices.html"):
     Context:
 
         notices
-            A list of :model:`notification.Notice` objects that are not archived
-            and to be displayed on the site.
+            A list of :model:`notification.Notice` objects that are not
+            archived and to be displayed on the site.
 
         notice_types
             A list of all :model:`notification.NoticeType` objects.
 
         notice_settings
-            A dictionary containing ``column_headers`` for each ``NOTICE_MEDIA``
-            and ``rows`` containing a list of dictionaries: ``notice_type``, a
-            :model:`notification.NoticeType` object and ``cells``, a list of
-            tuples whose first value is suitable for use in forms and the second
-            value is ``True`` or ``False`` depending on a ``request.POST``
-            variable called ``form_label``, whose valid value is ``on``.
+            A dictionary containing ``column_headers`` for each
+            ``NOTICE_MEDIA`` and ``rows`` containing a list of dictionaries:
+            ``notice_type``, a :model:`notification.NoticeType` object and
+            ``cells``, a list of tuples whose first value is suitable for use
+            in forms and the second value is ``True`` or ``False`` depending on
+            a ``request.POST`` variable called ``form_label``, whose valid
+            value is ``on``.
     """
     notices = Notice.objects.notices_for(request.user, on_site=True)
     settings_table = []
@@ -51,17 +54,20 @@ def notices(request, template_name="notification/notices.html"):
         settings_row = []
         for medium_id, medium_display in NOTICE_MEDIA:
             form_label = "%s_%s" % (notice_type.label, medium_id)
-            setting = get_notification_setting(request.user, notice_type, medium_id)
+            setting = get_notification_setting(request.user, notice_type,
+                medium_id)
             if request.method == "POST":
                 new_send = request.POST.get(form_label) == "on"
                 if new_send != setting.send:
                     setting.send = new_send
                     setting.save()
             settings_row.append((form_label, setting.send))
-        settings_table.append({"notice_type": notice_type, "cells": settings_row})
+        settings_table.append({"notice_type": notice_type,
+            "cells": settings_row})
 
     notice_settings = {
-        "column_headers": [medium_display for medium_id, medium_display in NOTICE_MEDIA],
+        "column_headers": [medium_display for medium_id, medium_display
+            in NOTICE_MEDIA],
         "rows": settings_table,
     }
 

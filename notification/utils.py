@@ -1,11 +1,10 @@
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import get_model
-from django.dispatch.dispatcher import WEAKREF_TYPES
 from django.utils.importlib import import_module
 
 from notification import settings
 
-_backends = [] 
+_backends = []
 
 
 def get_backends():
@@ -54,7 +53,8 @@ def get_notification_language(user):
         try:
             app_label, model_name = settings.LANGUAGE_MODULE.split('.')
             model = get_model(app_label, model_name)
-            language_model = model._default_manager.get(user__id__exact=user.id)
+            language_model = model._default_manager.get(
+                user__id__exact=user.id)
             if hasattr(language_model, 'language'):
                 return language_model.language
         except (ImportError, ImproperlyConfigured, model.DoesNotExist):
