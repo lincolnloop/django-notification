@@ -8,8 +8,6 @@ except ImportError:
 from django.db import models
 from django.db.models.query import QuerySet
 from django.conf import settings as django_settings
-from django.core.exceptions import ImproperlyConfigured
-from django.core.mail import send_mail
 from django.core.urlresolvers import reverse
 from django.template import Context
 from django.template.loader import render_to_string
@@ -361,9 +359,11 @@ class ObservedItem(models.Model):
         verbose_name = _('observed item')
         verbose_name_plural = _('observed items')
 
-    def send_notice(self):
-        send([self.user], self.notice_type.label,
-             {'observed': self.observed_object})
+    def send_notice(self, extra_context=None):
+        if extra_context is None:
+            extra_context = {}
+        extra_context.update({"observed": self.observed_object})
+        send([self.user], self.notice_type.label, extra_context)
 
 
 def observe(observed, observer, notice_type_label, signal='post_save'):

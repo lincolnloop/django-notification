@@ -19,7 +19,6 @@ from notification.models import NoticeQueueBatch
 from notification import models as notification
 
 
-
 def send_all():
     lock = FileLock("send_notices")
     
