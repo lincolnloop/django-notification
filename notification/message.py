@@ -1,5 +1,6 @@
 from django.db.models import get_model
 from django.utils.translation import ugettext
+from django.utils.html import escape, mark_safe
 
 # a notice like "foo and bar are now friends" is stored in the database
 # as "{auth.User.5} and {auth.User.7} are now friends".
@@ -102,8 +103,9 @@ def message_to_text(message):
 def message_to_html(message):
     def decoder(ref):
         obj, msgid = decode_object(ref)
-        obj = unicode(obj)
+        obj = escape(obj)
         if hasattr(obj, "get_absolute_url"):
-            obj = u"""<a href="%s">%s</a>""" % (obj.get_absolute_url(), obj)
+            obj = mark_safe(u'<a href="%s">%s</a>' % (
+                escape(obj.get_absolute_url()), obj))
         return obj, msgid
     return decode_message(message, decoder)
