@@ -9,6 +9,7 @@ from notification.models import *
 from notification.decorators import basic_auth_required, simple_basic_auth_callback
 from notification.feeds import NoticeUserFeed
 
+
 @basic_auth_required(realm='Notices Feed', callback_func=simple_basic_auth_callback)
 def feed_for_user(request):
     """
@@ -18,6 +19,7 @@ def feed_for_user(request):
     return feed(request, url, {
         "feed": NoticeUserFeed,
     })
+
 
 @login_required
 def notices(request, template_name="notification/notices.html"):
@@ -43,7 +45,6 @@ def notices(request, template_name="notification/notices.html"):
             value is ``True`` or ``False`` depending on a ``request.POST``
             variable called ``form_label``, whose valid value is ``on``.
     """
-    notice_types = NoticeType.objects.all()
     notices = Notice.objects.notices_for(request.user, on_site=True)
     settings_table = []
     for notice_type in NoticeType.objects.all():
@@ -52,11 +53,10 @@ def notices(request, template_name="notification/notices.html"):
             form_label = "%s_%s" % (notice_type.label, medium_id)
             setting = get_notification_setting(request.user, notice_type, medium_id)
             if request.method == "POST":
-                if request.POST.get(form_label) == "on":
-                    setting.send = True
-                else:
-                    setting.send = False
-                setting.save()
+                new_send = request.POST.get(form_label) == "on"
+                if new_send != setting.send:
+                    setting.send = new_send
+                    setting.save()
             settings_row.append((form_label, setting.send))
         settings_table.append({"notice_type": notice_type, "cells": settings_row})
 
@@ -70,6 +70,7 @@ def notices(request, template_name="notification/notices.html"):
         "notice_types": notice_types,
         "notice_settings": notice_settings,
     }, context_instance=RequestContext(request))
+
 
 @login_required
 def single(request, id, mark_seen=True):
@@ -99,6 +100,7 @@ def single(request, id, mark_seen=True):
         }, context_instance=RequestContext(request))
     raise Http404
 
+
 @login_required
 def archive(request, noticeid=None, next_page=None):
     """
@@ -126,6 +128,7 @@ def archive(request, noticeid=None, next_page=None):
             return HttpResponseRedirect(next_page)
     return HttpResponseRedirect(next_page)
 
+
 @login_required
 def delete(request, noticeid=None, next_page=None):
     """
@@ -152,6 +155,7 @@ def delete(request, noticeid=None, next_page=None):
         except Notice.DoesNotExist:
             return HttpResponseRedirect(next_page)
     return HttpResponseRedirect(next_page)
+
 
 @login_required
 def mark_all_seen(request):

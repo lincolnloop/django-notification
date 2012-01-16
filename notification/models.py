@@ -8,25 +8,25 @@ except ImportError:
 from django.db import models
 from django.db.models.query import QuerySet
 from django.conf import settings as django_settings
+from django.core.exceptions import ImproperlyConfigured
+from django.core.mail import send_mail
 from django.core.urlresolvers import reverse
+from django.template import Context
+from django.template.loader import render_to_string
+from django.utils.functional import lazy
+from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import ugettext, get_language, activate
 
 from django.contrib.sites.models import Site
 from django.contrib.auth.models import User
 from django.contrib.auth.models import AnonymousUser
-
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
-
-from django.template import Context
-from django.template.loader import render_to_string
-
-from django.utils.functional import lazy
-from django.utils.translation import ugettext, ugettext_lazy as _
-from django.utils.translation import get_language, activate
 
 from notification import settings, utils
 
 NOTICE_MEDIA = lazy(utils.get_mediums, tuple)()
+
 
 class NoticeType(models.Model):
 
@@ -52,7 +52,7 @@ class NoticeType(models.Model):
             if default is None:
                 return False
             return default <= self.default
-    
+
     def render_template(self, format, context):
         """
         Returns a rendered template for the format with the given context.
@@ -62,6 +62,7 @@ class NoticeType(models.Model):
         return render_to_string((
             'notification/%s/%s' % (self.label, format),
             'notification/%s' % format), context_instance=context)
+
 
 class NoticeSetting(models.Model):
     """
@@ -78,6 +79,7 @@ class NoticeSetting(models.Model):
         verbose_name = _("notice setting")
         verbose_name_plural = _("notice settings")
         unique_together = ("user", "notice_type", "medium")
+
 
 def get_notification_setting(user, notice_type, medium):
     try:
@@ -121,20 +123,21 @@ class NoticeManager(models.Manager):
         mark them seen
         """
         return self.notices_for(recipient, unseen=True, **kwargs).count()
-    
+
     def received(self, recipient, **kwargs):
         """
         returns notices the given recipient has recieved.
         """
         kwargs["sent"] = False
         return self.notices_for(recipient, **kwargs)
-    
+
     def sent(self, sender, **kwargs):
         """
         returns notices the given sender has sent
         """
         kwargs["sent"] = True
         return self.notices_for(sender, **kwargs)
+
 
 class Notice(models.Model):
 
@@ -174,9 +177,10 @@ class Notice(models.Model):
         verbose_name = _("notice")
         verbose_name_plural = _("notices")
 
+    @models.permalink
     def get_absolute_url(self):
-        return ("notification_notice", [str(self.pk)])
-    get_absolute_url = models.permalink(get_absolute_url)
+        return ('notification_notice', [self.pk])
+
 
 class NoticeQueueBatch(models.Model):
     """
@@ -184,6 +188,7 @@ class NoticeQueueBatch(models.Model):
     Denormalized data for a notice.
     """
     pickled_data = models.TextField()
+
 
 def create_notice_type(label, display, description, default=2, verbosity=1):
     """
@@ -212,6 +217,7 @@ def create_notice_type(label, display, description, default=2, verbosity=1):
         if verbosity > 1:
             print "Created %s NoticeType" % label
 
+
 def send_now(users, label, extra_context=None, on_site=True, sender=None,
              **kwargs):
     """
@@ -223,7 +229,7 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None,
         'spam': 'eggs',
         'foo': 'bar',
     )
-    
+
     You can pass in on_site=False to prevent the notice emitted from being
     displayed on the site.
     """
@@ -267,13 +273,14 @@ def send_now(users, label, extra_context=None, on_site=True, sender=None,
             "current_site": current_site,
         })
         context.update(extra_context)
-        
+
         for backend in utils.get_backends():
             backend.send(sender=sender, user=user, notice_type=notice_type,
                 context=context, on_site=on_site, **kwargs)
 
     # reset environment to original language
     activate(current_language)
+
 
 def send(*args, **kwargs):
     """
@@ -294,7 +301,8 @@ def send(*args, **kwargs):
             return queue(*args, **kwargs)
         else:
             return send_now(*args, **kwargs)
-        
+
+
 def queue(users, label, extra_context=None, on_site=True, sender=None,
           **kwargs):
     """
@@ -312,6 +320,7 @@ def queue(users, label, extra_context=None, on_site=True, sender=None,
     for user in users:
         notices.append((user, label, extra_context, on_site, sender, kwargs))
     NoticeQueueBatch(pickled_data=pickle.dumps(notices).encode("base64")).save()
+
 
 class ObservedItemManager(models.Manager):
 
@@ -364,10 +373,13 @@ def observe(observed, observer, notice_type_label, signal='post_save'):
     To be used by applications to register a user as an observer for some object.
     """
     notice_type = NoticeType.objects.get(label=notice_type_label)
-    observed_item = ObservedItem(user=observer, observed_object=observed,
-                                 notice_type=notice_type, signal=signal)
+    observed_item = ObservedItem(
+        user=observer, observed_object=observed,
+        notice_type=notice_type, signal=signal
+    )
     observed_item.save()
     return observed_item
+
 
 def stop_observing(observed, observer, signal='post_save'):
     """
@@ -376,14 +388,18 @@ def stop_observing(observed, observer, signal='post_save'):
     observed_item = ObservedItem.objects.get_for(observed, observer, signal)
     observed_item.delete()
 
-def send_observation_notices_for(observed, signal='post_save'):
+
+def send_observation_notices_for(observed, signal='post_save', extra_context=None):
     """
     Send a notice for each registered user about an observed object.
     """
+    if extra_context is None:
+        extra_context = {}
     observed_items = ObservedItem.objects.all_for(observed, signal)
     for observed_item in observed_items:
-        observed_item.send_notice()
+        observed_item.send_notice(extra_context)
     return observed_items
+
 
 def is_observing(observed, observer, signal='post_save'):
     if isinstance(observer, AnonymousUser):
@@ -395,6 +411,7 @@ def is_observing(observed, observer, signal='post_save'):
         return False
     except ObservedItem.MultipleObjectsReturned:
         return True
+
 
 def handle_observations(sender, instance, *args, **kw):
     send_observation_notices_for(instance)
